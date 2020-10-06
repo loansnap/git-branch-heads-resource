@@ -29,6 +29,7 @@ following property:
   all branches are tracked.
 * `exclude`: *Optional* A Regex for branches to be excluded. If not specified,
   no branches are excluded.
+* `changed_only`: *Optional* If true, the resource will only show the changed branch heads and not all of them. Useful for repos with many active branches. Defaults to false
 
 The `branch` configuration from the original resource is ignored for `check`.
 

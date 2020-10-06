@@ -105,6 +105,15 @@ check_uri_from() {
   }' --arg uri "$uri" --argjson branches "$branches" | ${resource_dir}/check | tee /dev/stderr
 }
 
+check_uri_changed_only() {
+  jq -n '{
+    source: {
+      uri: $uri,
+			changed_only: true
+    }
+  }' --arg uri "$1" | ${resource_dir}/check | tee /dev/stderr
+}
+
 get_changed_branch() {
   uri=$1
   dest=$2

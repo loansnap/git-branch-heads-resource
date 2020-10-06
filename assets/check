@@ -20,6 +20,7 @@ uri=$(jq -r '.source.uri // ""' < $payload)
 exclude_branches=$(jq -r '.source.exclude // ""' < $payload)
 branch_filter=$(jq -r '.source.branches // [] | join(" ")' < $payload)
 git_config_payload=$(jq -r '.source.git_config // []' < $payload)
+changed_only="$(jq -r '.source.changed_only // false' < $payload)"
 
 previous_branches="$(jq -r '.version.branches // ""' < $payload)"
 
@@ -36,7 +37,7 @@ current_heads_map=$(
   ' --arg heads "$current_heads"
 )
 
-echo "$current_heads" |
+changed=$(echo "$current_heads" |
   while read branch ref; do
     if [ -z "$branch" ]; then
       continue
@@ -46,7 +47,16 @@ echo "$current_heads" |
     if [ "$ref" != "$prev_ref" ]; then
       echo "$branch"
     fi
-  done |
+  done)
+
+if [[ "$changed_only" == "true" ]]; then
+  echo -n "$changed" |
+  jq -R . |
+  jq -s 'map({changed: ., (.): $branches[.]})' \
+    --argjson branches "$current_heads_map" --arg changed "$changed" >&3
+else
+  echo -n "$changed" |
   jq -R . |
   jq -s 'map({changed: .} + $branches)' \
     --argjson branches "$current_heads_map" >&3
+fi

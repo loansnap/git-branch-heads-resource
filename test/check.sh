@@ -183,6 +183,27 @@ it_can_check_with_removed_branch() {
   ' --arg refa1 "$refa1" --arg refmaster1 "$refmaster1"
 }
 
+it_can_check_with_changed_only() {
+  local repo=$(init_repo)
+
+  local refmaster1=$(git -C $repo rev-parse master)
+  local refa1=$(make_commit_to_branch $repo branch-a)
+  local refb1=$(make_commit_to_branch $repo branch-b)
+
+  check_uri_changed_only $repo | jq -e '
+    . == [{
+      changed: "branch-a",
+      "branch-a": $refa1,
+    },{
+      changed: "branch-b",
+      "branch-b": $refb1,
+    },{
+      changed: "master",
+      "master": $refmaster1
+    }]
+  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refmaster1 "$refmaster1"
+}
+
 run it_can_check_from_no_version
 run it_can_check_from_no_version_with_filter
 run it_can_check_from_no_version_with_filters
@@ -190,3 +211,4 @@ run it_can_check_with_updated_branch
 run it_can_check_with_updated_branches
 run it_can_check_with_added_branch
 run it_can_check_with_removed_branch
+run it_can_check_with_changed_only

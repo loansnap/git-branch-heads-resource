@@ -50,12 +50,12 @@ changed=$(echo "$current_heads" |
   done)
 
 if [[ "$changed_only" == "true" ]]; then
-  echo "$changed" |
+  echo -n "$changed" |
   jq -R . |
   jq -s 'map({changed: ., (.): $branches[.]})' \
     --argjson branches "$current_heads_map" --arg changed "$changed" >&3
 else
-  echo "$changed" |
+  echo -n "$changed" |
   jq -R . |
   jq -s 'map({changed: .} + $branches)' \
     --argjson branches "$current_heads_map" >&3

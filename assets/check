@@ -52,7 +52,7 @@ all_heads=$(echo "$current_heads" |
 
     ts=$(git show -s --format="%ct" $ref)
     # If we have an incoming version only include newer branches/versions
-    if [[ -z "$previous_ts" || $ts -ge $previous_ts ]]; then
+    if [[ -z "$previous_ts" ]] || [[ $ts -ge $previous_ts ]]; then
       echo "$ts" "$branch" "$ref"
     fi
 

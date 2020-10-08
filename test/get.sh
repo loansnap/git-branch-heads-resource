@@ -29,9 +29,7 @@ it_can_get_version() {
           branch: $branch,
         },
         version: {
-          ref: $ref,
-          branch: $branch,
-          ts: $ts
+          ref: $ref
         }
       },
       version: {

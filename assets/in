@@ -22,5 +22,5 @@ jq \
     '. + {version: ($payload | .[0].version)}'
 
 cd "$@"
-mkdir .git/git-branch-heads-resource
+mkdir -p .git/git-branch-heads-resource
 jq < $payload -r .version.branch > .git/git-branch-heads-resource/branch

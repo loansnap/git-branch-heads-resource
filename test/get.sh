@@ -4,22 +4,23 @@ set -e
 
 source $(dirname $0)/helpers.sh
 
+ts0=1602177520
+ts1=1602177521
+ts2=1602177522
+
 it_can_get_version() {
   local dest=$TMPDIR/destination
 
   mkdir $dest
 
-  local repo=$(init_repo)
+  local repo=$(init_repo $ts0)
 
   local refmaster1=$(git -C $repo rev-parse master)
 
-  # NB: these actually end up being the same ref most of the time, since commit
-  # shas are computed based on the patch message, and if it's the same code
-  # change, message, parent sha, and timestamp, the sha will be the same
-  local refa1=$(make_commit_to_branch $repo branch-a)
-  local refb1=$(make_commit_to_branch $repo branch-b)
+  local refa1=$(make_commit_to_branch $repo branch-a $ts1)
+  local refb1=$(make_commit_to_branch $repo branch-b $ts2)
 
-  get_changed_branch $repo $dest "branch-a" "branch-a=$refa1" "branch-b=$refb1" "master=$refmaster1" | jq -e '
+  get_changed_ref $repo $dest "branch-a" $refa1 $ts1 | jq -e '
     . == {
       destination: $dest,
       request: {
@@ -29,22 +30,21 @@ it_can_get_version() {
         },
         version: {
           ref: $ref,
+          branch: $branch,
+          ts: $ts
         }
       },
       version: {
-        "changed": $branch,
-        "branch-a": $refa1,
-        "branch-b": $refb1,
-        "master": $refmaster1
+        "branch": $branch,
+        "ref": $ref,
+        "ts": $ts
       }
     }
   ' --arg dest "$dest" \
     --arg repo "$repo" \
     --arg branch "branch-a" \
     --arg ref "$refa1" \
-    --arg refa1 "$refa1" \
-    --arg refb1 "$refb1" \
-    --arg refmaster1 "$refmaster1"
+    --arg ts "$ts1"
 }
 
 run it_can_get_version

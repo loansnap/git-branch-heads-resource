@@ -9,6 +9,7 @@ exec 1>&2 # redirect all output to stderr for logging
 source $(dirname $0)/common.sh
 
 payload=$TMPDIR/git-branch-heads-resource-request
+repo=$TMPDIR/repo
 
 cat > $payload <&0
 
@@ -22,7 +23,8 @@ branch_filter=$(jq -r '.source.branches // [] | join(" ")' < $payload)
 git_config_payload=$(jq -r '.source.git_config // []' < $payload)
 changed_only="$(jq -r '.source.changed_only // false' < $payload)"
 
-previous_branches="$(jq -r '.version.branches // ""' < $payload)"
+#previous_branches="$(jq -r '.version.branches // ""' < $payload)"
+previous_ts="$(jq -r '.version.ts // ""' < $payload)"
 
 configure_git_global "${git_config_payload}"
 
@@ -37,26 +39,53 @@ current_heads_map=$(
   ' --arg heads "$current_heads"
 )
 
-changed=$(echo "$current_heads" |
+# Clone a shallow copy of the remote repo to a tmpdir
+[ -d "$repo" ] || git clone --depth 1 --no-single-branch -n "$uri" "$repo"
+cd "$repo"
+git fetch
+
+all_heads=$(echo "$current_heads" |
   while read branch ref; do
     if [ -z "$branch" ]; then
       continue
     fi
 
-    prev_ref=$(jq -r '.version | .[$branch]' --arg branch "$branch" < $payload)
-    if [ "$ref" != "$prev_ref" ]; then
-      echo "$branch"
+    ts=$(git show -s --format="%ct" $ref)
+    # If we have an incoming version only include newer branches/versions
+    if [[ -z "$previous_ts" || $ts -ge $previous_ts ]]; then
+      echo "$ts" "$branch" "$ref"
     fi
+
+    #prev_ref=$(jq -r '.version | .[$branch]' --arg branch "$branch" < $payload)
+    #if [ "$ref" != "$prev_ref" ]; then
+      #echo "$branch"
+    #fi
   done)
 
-if [[ "$changed_only" == "true" ]]; then
-  echo -n "$changed" |
-  jq -R . |
-  jq -s 'map({changed: ., (.): $branches[.]})' \
-    --argjson branches "$current_heads_map" --arg changed "$changed" >&3
-else
-  echo -n "$changed" |
-  jq -R . |
-  jq -s 'map({changed: .} + $branches)' \
-    --argjson branches "$current_heads_map" >&3
+if [[ -z "$previous_ts" ]]; then
+  all_heads=$(echo "$all_heads" | tail -n 1)
 fi
+#sorted_heads=$(if [[ -z "$previous_ts" ]]; then
+  #echo "$all_heads" | sort -n | tail -n 1
+#else
+  #echo "$all_heads" | sort -n -r |
+    #while read ts branch ref; do
+      #echo "$ts" "$branch" "$ref"
+    #done
+#fi)
+
+jq -n '$heads | rtrimstr("\n") | split("\n") |
+  map(split(" ") | {branch: .[1], ts: .[0], ref: .[2]})' \
+  --arg heads "$all_heads" >&3
+
+#if [[ "$changed_only" == "true" ]]; then
+  #echo -n "$changed" |
+  #jq -R . |
+  #jq -s 'map({changed: ., (.): $branches[.]})' \
+    #--argjson branches "$current_heads_map" --arg changed "$changed" >&3
+#else
+  #echo -n "$changed" |
+  #jq -R . |
+  #jq -s 'map({changed: .} + $branches)' \
+    #--argjson branches "$current_heads_map" >&3
+#fi

@@ -4,211 +4,75 @@ set -e
 
 source $(dirname $0)/helpers.sh
 
+ts0=1602177520
+ts1=1602177521
+ts2=1602177522
+ts3=1602177523
+ts4=1602177524
+ts5=1602177525
+
 it_can_check_from_no_version() {
-  local repo=$(init_repo)
+  local repo=$(init_repo $ts0)
 
   local refmaster1=$(git -C $repo rev-parse master)
 
-  # NB: these actually end up being the same ref most of the time, since commit
-  # shas are computed based on the patch message, and if it's the same code
-  # change, message, parent sha, and timestamp, the sha will be the same
-  local refa1=$(make_commit_to_branch $repo branch-a)
-  local refb1=$(make_commit_to_branch $repo branch-b)
+  local refa1=$(make_commit_to_branch $repo branch-a $ts1)
+  local refb1=$(make_commit_to_branch $repo branch-b $ts2)
 
   check_uri $repo | jq -e '
     . == [{
-      changed: "branch-a",
-      "branch-a": $refa1,
-      "branch-b": $refb1,
-      "master": $refmaster1
-    },{
-      changed: "branch-b",
-      "branch-a": $refa1,
-      "branch-b": $refb1,
-      "master": $refmaster1
-    },{
-      changed: "master",
-      "branch-a": $refa1,
-      "branch-b": $refb1,
-      "master": $refmaster1
+			branch: "master",
+			ref: $refmaster1,
+			ts: $ts0
     }]
-  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refmaster1 "$refmaster1"
+  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refmaster1 "$refmaster1" --arg ts1 "$ts1" --arg ts2 "$ts2" --arg ts0 "$ts0"
 }
 
-it_can_check_from_no_version_with_filter() {
-  set -e
-
-  local repo=$(init_repo)
+it_can_check_from_version() {
+  local repo=$(init_repo $ts0)
 
   local refmaster1=$(git -C $repo rev-parse master)
 
-  # NB: these actually end up being the same ref most of the time, since commit
-  # shas are computed based on the patch message, and if it's the same code
-  # change, message, parent sha, and timestamp, the sha will be the same
-  local refa1=$(make_commit_to_branch $repo matched-a)
-  local refb1=$(make_commit_to_branch $repo matched-b)
+  local refa1=$(make_commit_to_branch $repo branch-a $ts1)
+  local refb1=$(make_commit_to_branch $repo branch-b $ts2)
 
-  make_commit_to_branch $repo not-matched-a
-
-  make_commit_to_branch $repo ignored-a
-  make_commit_to_branch $repo ignored-b
-
-  check_uri_branches $repo 'matched-*' | jq -e '
+  check_uri_from_ts $repo $ts1 | jq -e '
     . == [{
-      changed: "matched-a",
-      "matched-a": $refa1,
-      "matched-b": $refb1
+			branch: "branch-a",
+			ref: $refa1,
+			ts: $ts1
     },{
-      changed: "matched-b",
-      "matched-a": $refa1,
-      "matched-b": $refb1
+			branch: "branch-b",
+			ref: $refb1,
+			ts: $ts2
     }]
-  ' --arg refa1 "$refa1" --arg refb1 "$refb1"
+  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg ts1 "$ts1" --arg ts2 "$ts2"
 }
 
-it_can_check_from_no_version_with_filters() {
-  set -e
-
-  local repo=$(init_repo)
+it_can_check_from_updated_branch() {
+  local repo=$(init_repo $ts0)
 
   local refmaster1=$(git -C $repo rev-parse master)
 
-  # NB: these actually end up being the same ref most of the time, since commit
-  # shas are computed based on the patch message, and if it's the same code
-  # change, message, parent sha, and timestamp, the sha will be the same
-  local refa1=$(make_commit_to_branch $repo matched-a)
-  local refb1=$(make_commit_to_branch $repo matched-b)
+  local refa1=$(make_commit_to_branch $repo branch-a $ts1)
+  local refb1=$(make_commit_to_branch $repo branch-b $ts2)
 
-  local refc1=$(make_commit_to_branch $repo also-matched-c)
+  local refa2=$(make_commit_to_branch $repo branch-a $ts3)
+  local refb2=$(make_commit_to_branch $repo branch-b $ts4)
 
-  make_commit_to_branch $repo ignored-a
-  make_commit_to_branch $repo ignored-b
-
-  check_uri_branches $repo 'matched-*' 'also-*' | jq -e '
+  check_uri_from_ts $repo $ts1 | jq -e '
     . == [{
-      changed: "also-matched-c",
-      "matched-a": $refa1,
-      "matched-b": $refb1,
-      "also-matched-c": $refc1
+			branch: "branch-a",
+			ref: $refa2,
+			ts: $ts3
     },{
-      changed: "matched-a",
-      "matched-a": $refa1,
-      "matched-b": $refb1,
-      "also-matched-c": $refc1
-    },{
-      changed: "matched-b",
-      "matched-a": $refa1,
-      "matched-b": $refb1,
-      "also-matched-c": $refc1
+			branch: "branch-b",
+			ref: $refb2,
+			ts: $ts4
     }]
-  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refc1 "$refc1"
-}
-
-it_can_check_with_updated_branch() {
-  local repo=$(init_repo)
-
-  local refmaster1=$(git -C $repo rev-parse master)
-
-  local refa1=$(make_commit_to_branch $repo branch-a)
-  local refb1=$(make_commit_to_branch $repo branch-b)
-
-  local refa2=$(make_commit_to_branch $repo branch-a)
-
-  check_uri_from $repo "branch-a=$refa1" "branch-b=$refb1" "master=$refmaster1" | jq -e '
-    . == [{
-      changed: "branch-a",
-      "branch-a": $refa2,
-      "branch-b": $refb1,
-      "master": $refmaster1
-    }]
-  ' --arg refa2 "$refa2" --arg refb1 "$refb1" --arg refmaster1 "$refmaster1"
-}
-
-it_can_check_with_updated_branches() {
-  local repo=$(init_repo)
-
-  local refmaster1=$(git -C $repo rev-parse master)
-
-  local refa1=$(make_commit_to_branch $repo branch-a)
-  local refb1=$(make_commit_to_branch $repo branch-b)
-
-  local refa2=$(make_commit_to_branch $repo branch-a)
-  local refb2=$(make_commit_to_branch $repo branch-b)
-
-  check_uri_from $repo "branch-a=$refa1" "branch-b=$refb1" "master=$refmaster1" | jq -e '
-    . == [{
-      changed: "branch-a",
-      "branch-a": $refa2,
-      "branch-b": $refb2,
-      "master": $refmaster1
-    }, {
-      changed: "branch-b",
-      "branch-a": $refa2,
-      "branch-b": $refb2,
-      "master": $refmaster1
-    }]
-  ' --arg refa2 "$refa2" --arg refb2 "$refb2" --arg refmaster1 "$refmaster1"
-}
-
-it_can_check_with_added_branch() {
-  local repo=$(init_repo)
-
-  local refmaster1=$(git -C $repo rev-parse master)
-
-  local refa1=$(make_commit_to_branch $repo branch-a)
-  local refb1=$(make_commit_to_branch $repo branch-b)
-
-  local refc1=$(make_commit_to_branch $repo branch-c)
-
-  check_uri_from $repo "branch-a=$refa1" "branch-b=$refb1" "master=$refmaster1" | jq -e '
-    . == [{
-    changed: "branch-c",
-    "branch-a": $refa1,
-    "branch-b": $refb1,
-    "branch-c": $refc1,
-    "master": $refmaster1
-  }]
-  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refc1 "$refc1" --arg refmaster1 "$refmaster1"
-}
-
-it_can_check_with_removed_branch() {
-  local repo=$(init_repo)
-
-  local refmaster1=$(git -C $repo rev-parse master)
-
-  local refa1=$(make_commit_to_branch $repo branch-a)
-
-  check_uri_from $repo "branch-a=$refa1" "branch-b=bogus-ref" "master=$refmaster1" | jq -e '
-    . == []
-  ' --arg refa1 "$refa1" --arg refmaster1 "$refmaster1"
-}
-
-it_can_check_with_changed_only() {
-  local repo=$(init_repo)
-
-  local refmaster1=$(git -C $repo rev-parse master)
-  local refa1=$(make_commit_to_branch $repo branch-a)
-  local refb1=$(make_commit_to_branch $repo branch-b)
-
-  check_uri_changed_only $repo | jq -e '
-    . == [{
-      changed: "branch-a",
-      "branch-a": $refa1,
-    },{
-      changed: "branch-b",
-      "branch-b": $refb1,
-    },{
-      changed: "master",
-      "master": $refmaster1
-    }]
-  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refmaster1 "$refmaster1"
+  ' --arg refa2 "$refa2" --arg refb2 "$refb2" --arg ts3 "$ts3" --arg ts4 "$ts4"
 }
 
 run it_can_check_from_no_version
-run it_can_check_from_no_version_with_filter
-run it_can_check_from_no_version_with_filters
-run it_can_check_with_updated_branch
-run it_can_check_with_updated_branches
-run it_can_check_with_added_branch
-run it_can_check_with_removed_branch
-run it_can_check_with_changed_only
+run it_can_check_from_version
+run it_can_check_from_updated_branch

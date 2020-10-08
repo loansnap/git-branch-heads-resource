@@ -5,7 +5,7 @@ set -e -u
 set -o pipefail
 
 export TMPDIR_ROOT=$(mktemp -d /tmp/git-tests.XXXXXX)
-trap "rm -rf $TMPDIR_ROOT" EXIT
+#trap "rm -rf $TMPDIR_ROOT" EXIT
 
 if [ -d /opt/resource ]; then
   resource_dir=/opt/resource
@@ -23,6 +23,7 @@ run() {
 
 init_repo() {
   (
+		local ts=${1-}
     set -e
 
     cd $(mktemp -d $TMPDIR/repo.XXXXXX)
@@ -30,7 +31,7 @@ init_repo() {
     git init -q
 
     # start with an initial commit
-    git \
+    GIT_COMMITTER_DATE="$ts" git \
       -c user.name='test' \
       -c user.email='test@example.com' \
       commit -q --allow-empty -m "init"
@@ -47,7 +48,7 @@ make_commit_to_file_on_branch() {
   local repo=$1
   local file=$2
   local branch=$3
-  local msg=${4-}
+	local ts=${4-}  # Allow forcing the commit timestamp
 
   # ensure branch exists
   if ! git -C $repo rev-parse --verify $branch >/dev/null 2>&1; then
@@ -60,17 +61,17 @@ make_commit_to_file_on_branch() {
   # modify file and commit
   echo x >> $repo/$file
   git -C $repo add $file
-  git -C $repo \
+  GIT_COMMITTER_DATE="$ts" git -C $repo \
     -c user.name='test' \
     -c user.email='test@example.com' \
-    commit -q -m "commit $(wc -l $repo/$file) $msg"
+    commit -q -m "commit $(wc -l $repo/$file) $RANDOM"
 
   # output resulting sha
   git -C $repo rev-parse HEAD
 }
 
 make_commit_to_branch() {
-  make_commit_to_file_on_branch $1 some-file $2
+  make_commit_to_file_on_branch $1 some-file $2 $3
 }
 
 check_uri() {
@@ -105,6 +106,18 @@ check_uri_from() {
   }' --arg uri "$uri" --argjson branches "$branches" | ${resource_dir}/check | tee /dev/stderr
 }
 
+check_uri_from_ts() {
+	uri=$1
+  ts=$2
+
+  jq -n '{
+    source: {
+      uri: $uri
+    },
+		version: ({ts: $ts, ref: "fakeref", branch:"fakebranch"})
+  }' --arg uri "$uri" --arg ts "$ts" | ${resource_dir}/check | tee /dev/stderr
+}
+
 check_uri_changed_only() {
   jq -n '{
     source: {
@@ -129,6 +142,24 @@ get_changed_branch() {
     },
     version: ({changed: $changed} + $branches)
   }' --arg uri "$uri" --arg changed "$changed" --argjson branches "$branches" |
+    env GIT_RESOURCE_IN=$(dirname $0)/git-in-stub \
+      ${resource_dir}/in "$dest" |
+    tee /dev/stderr
+}
+
+get_changed_ref() {
+  uri=$1
+  dest=$2
+  branch=$3
+  ref=$4
+	ts=$5
+
+  jq -n '{
+    source: {
+      uri: $uri
+    },
+	version: ({branch: $branch, ref: $ref, ts: $ts})
+  }' --arg uri "$uri" --arg ref "$ref" --arg branch "$branch" --arg ts "$ts" |
     env GIT_RESOURCE_IN=$(dirname $0)/git-in-stub \
       ${resource_dir}/in "$dest" |
     tee /dev/stderr

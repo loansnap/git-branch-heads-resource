@@ -19,13 +19,14 @@ it_can_check_from_no_version() {
   local refa1=$(make_commit_to_branch $repo branch-a $ts1)
   local refb1=$(make_commit_to_branch $repo branch-b $ts2)
 
+	# Should grab the latest branch only
   check_uri $repo | jq -e '
     . == [{
-			branch: "master",
-			ref: $refmaster1,
-			ts: $ts0
+			branch: "branch-b",
+			ref: $refb1,
+			ts: $ts2
     }]
-  ' --arg refa1 "$refa1" --arg refb1 "$refb1" --arg refmaster1 "$refmaster1" --arg ts1 "$ts1" --arg ts2 "$ts2" --arg ts0 "$ts0"
+  ' --arg refb1 "$refb1" --arg ts2 "$ts2"
 }
 
 it_can_check_from_version() {

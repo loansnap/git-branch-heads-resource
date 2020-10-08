@@ -60,7 +60,7 @@ all_heads=$(echo "$current_heads" |
     #if [ "$ref" != "$prev_ref" ]; then
       #echo "$branch"
     #fi
-  done)
+  done | sort -n)
 
 if [[ -z "$previous_ts" ]]; then
   all_heads=$(echo "$all_heads" | tail -n 1)
